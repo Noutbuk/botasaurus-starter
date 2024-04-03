@@ -23,7 +23,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           tags: |
-            type=ref,suffix=${{ github.run_number }},event=branch
+            type=ref,suffix=-${{ github.run_number }},event=branch
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
       - name: Login
         uses: docker/login-action@v3
