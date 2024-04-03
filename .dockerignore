@@ -27,4 +27,8 @@ build/
 
 /error_logs/
 
-index.http    
+index.http
+
+test.html
+test.json
+test.js
