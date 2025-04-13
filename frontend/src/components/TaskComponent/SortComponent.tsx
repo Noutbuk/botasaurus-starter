@@ -1,11 +1,11 @@
-import { EuiFormRow } from '@elastic/eui'
-import ChooseField from '../inputs/ChooseField'
-import SingleSelect from '../inputs/SingleSelect'
+import { EuiFormRow } from '@elastic/eui';
+
+import ChooseField from '../inputs/ChooseField';
+import SingleSelect from '../inputs/SingleSelect';
 
 export const SortComponent = ({ sort, setSort, sorts }) => {
   // Convert sorts to the format expected by TabsComponent
   const sortTabs = [
-    { value: '', label: 'No Sort' }, // "Don't Sort" option
     ...sorts.map(({ id, label }) => ({
       value: id,
       label,
@@ -18,11 +18,16 @@ export const SortComponent = ({ sort, setSort, sorts }) => {
         color={null}
         value={sort}
         options={sortTabs}
-        onChange={setSort}
+        onChange={x=> {
+          if (x === null) {
+            return setSort('no_sort')
+          }else{
+            return setSort(x)
+          }
+        }}
       />
     )
   } else {
-    sortTabs[0] =     { value: '', label: "Don't Sort" }
     return <EuiFormRow
       className="row-label-auto"
       label="Sort"
@@ -30,6 +35,7 @@ export const SortComponent = ({ sort, setSort, sorts }) => {
       fullWidth>
       <div className="ml-4">
         <SingleSelect 
+          isClearable={false}
           style={{ maxWidth: '300px' }}
           name={'sort'}
           options={sortTabs}

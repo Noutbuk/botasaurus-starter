@@ -8,11 +8,12 @@ services:
         context: .
       volumes:
         - ./output:/app/output
+        - ./src:/app/src
         #- ./tasks:/app/tasks
         #- ./profiles:/app/profiles
         #- ./profiles.json:/app/profiles.json
         #- ./local_storage.json:/app/local_storage.json
         # - ./db.sqlite3:/app/db.sqlite3
       ports:
-        - "3000:3000" 
-        - "8000:8000" 
+        - "3000:3000"
+        - "8000:8000"

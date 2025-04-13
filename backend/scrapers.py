@@ -1,6 +1,13 @@
 from botasaurus_server.server import Server
-from src.scrape_heading_task import scrape_heading_task
+from botasaurus_server.sorts import NumericAscendingSort
+from src.tickets import list_locations, get_tickets
 
 Server.add_scraper(
-    scrape_heading_task,
+    list_locations,
+    sorts=[NumericAscendingSort("1")]
+)
+
+Server.add_scraper(
+    get_tickets,
+    sorts=[NumericAscendingSort("2")]
 )

@@ -1,18 +1,20 @@
-import { GetServerSideProps } from 'next/types'
-import Seo from '../../components/Seo'
-import TaskComponent from '../../components/TaskComponent/TaskComponent'
-import AuthedDashboard from '../../layouts/AuthedDashboard'
-import Api from '../../utils/api'
-import { create_title } from '../../utils/common'
-import Links from '../../utils/data/links'
-import AxiosErrorHoc, { wrapAxiosErrors } from '../../components/AxiosErrorHoc'
+import AuthedDashboard from '../../components/AuthedDashboard';
+import AxiosErrorHoc from '../../components/AxiosErrorHoc';
+import Seo from '../../components/Seo';
+import TaskComponent from '../../components/TaskComponent/TaskComponent';
+import { create_title } from '../../utils/common';
+import { outputTaskServerSideProps } from '../../utils/props';
+
+function findScraperConfig(scrapers: any, task: any) {
+  return scrapers.find(
+    scraper => scraper.scraper_name === task.scraper_name
+  )
+}
 
 const Page = ({ taskId, scrapers, ...props }: any) => {
   const response = props.response
   const task = response.task
-  const scraperConfig = scrapers.find(
-    scraper => scraper.scraper_name === task.scraper_name
-  )
+  const scraperConfig = findScraperConfig(scrapers, task)
 
   if (!scraperConfig) {
     return <div>No Scraper Config Found, Did you forgot to add Scraper?</div>
@@ -29,31 +31,5 @@ const Page = ({ taskId, scrapers, ...props }: any) => {
 }
 
 
-export const getServerSideProps: GetServerSideProps = wrapAxiosErrors(async ({
-  params,
-  res,
-  req,
-}) => {
-  try {
-    const id = (params as any).taskId
-
-    const { data } = await Api.getTaskResults(id, {
-      "limit": 25,
-      "offset": 0,
-    })
-
-    return {
-      props: { response: data, taskId: id },
-    }
-  } catch (error) {
-    if (error.response && error.response.status === 404) {
-      return {
-        redirect: { destination: Links.notFound, permanent: false },
-      }
-    } 
-    else {
-      throw error
-    }
-  }
-})
+export const getServerSideProps = outputTaskServerSideProps
 export default AxiosErrorHoc(Page)

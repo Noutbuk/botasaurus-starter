@@ -1,17 +1,8 @@
-import { GetServerSideProps } from 'next/types'
-import Description from '../../components/Description/Description'
 import OutputComponent from '../../components/OutputComponent/OutputComponent'
-import Tabs, { TabsId } from '../../components/PagesTabs/PagesTabs'
 import Seo from '../../components/Seo'
-import {
-  OutputContainer,
-  OutputTabsContainer,
-  TabWrapper,
-} from '../../components/Wrappers'
-import AuthedDashboard from '../../layouts/AuthedDashboard'
-import Api from '../../utils/api'
+import AuthedDashboard from '../../components/AuthedDashboard'
 import AxiosErrorHoc, { wrapAxiosErrors } from '../../components/AxiosErrorHoc'
-import ServerStatusComponent from '../../components/ServerStatusComponent'
+import { outputServerSideProps } from '../../utils/props'
 
 const Page = ({ tasks, ...props }: any) => {
   return (
@@ -19,26 +10,11 @@ const Page = ({ tasks, ...props }: any) => {
       <Seo {...props} title={'Output'} />
 
       <AuthedDashboard {...props}>
-        <OutputTabsContainer>
-          <ServerStatusComponent/>
-          <Description {...props} />
-          <Tabs initialSelectedTab={TabsId.OUTPUT} />
-        </OutputTabsContainer>
-        <OutputContainer>
-          
-          <TabWrapper>
-            <OutputComponent {...props} tasks={tasks} />
-          </TabWrapper>
-        </OutputContainer>
+      <OutputComponent {...props} tasks={tasks} />
+        
       </AuthedDashboard>
     </>
   )
 }
-
-export const getServerSideProps: GetServerSideProps = wrapAxiosErrors(async ({}) => {
-  const { data } = await Api.getTasks()
-  return {
-    props: { tasks: data },
-  }
-})
+export const getServerSideProps= outputServerSideProps
 export default AxiosErrorHoc(Page)

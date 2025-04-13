@@ -1,28 +1,19 @@
-import { EuiLink, EuiPagination } from '@elastic/eui'
-import { useEffect, useRef, useState } from 'react'
-import Api from '../../utils/api'
-import { isEmpty, isEmptyObject } from '../../utils/missc'
-import { TaskStatus, isDoing } from '../../utils/models'
-import CenteredSpinner from '../CenteredSpinner'
-import DownloadStickyBar from '../DownloadStickyBar/DownloadStickyBar'
-import {
-  EmptyAborted,
-  EmptyFailed,
-  EmptyFilterResults,
-  EmptyInProgress,
-  EmptyPending,
-  EmptyResults,
-} from '../Empty/Empty'
-import {
-  Container,
-  OutputContainerWithBottomPadding,
-  OutputTabsContainer,
-} from '../Wrappers'
-import DataPanel from './DataPanel'
-import { FilterComponent } from './FilterComponent'
-import { SortComponent } from './SortComponent'
-import { ViewComponent } from './ViewComponent'
-import Link from 'next/link'
+import { EuiLink } from '@elastic/eui';
+import { useEffect, useRef, useState } from 'react';
+
+import Api from '../../utils/api';
+import { isEmpty, isEmptyObject } from '../../utils/missc';
+import { hasFilters, hasSorts, hasViews, isDoing, TaskStatus } from '../../utils/models';
+import CenteredSpinner from '../CenteredSpinner';
+import DownloadStickyBar from '../DownloadStickyBar/DownloadStickyBar';
+import { EmptyAborted, EmptyFailed, EmptyFilterResults, EmptyInProgress, EmptyPending, EmptyResults } from '../Empty/Empty';
+import { Link } from '../Link';
+import { Pagination } from '../Pagination';
+import { Container, OutputContainerWithBottomPadding, OutputTabsContainer } from '../Wrappers';
+import DataPanel from './DataPanel';
+import { FilterComponent } from './FilterComponent';
+import { SortComponent } from './SortComponent';
+import { ViewComponent } from './ViewComponent';
 
 function sentenceCase(string) {
   // Convert a string into Sentence case.
@@ -72,6 +63,14 @@ function clean_filter_data(filter_data, filters) {
           cleanedFilterData[filter.id] = dt
         }
       }
+      // fix filter issues
+    } else if (filter.type === 'MinNumberInput' || filter.type === 'MaxNumberInput') {
+      if (cleanedFilterData[filter.id] === null) {
+        delete cleanedFilterData[filter.id]
+      }
+    } else if (filter.type === 'SearchTextInput') {
+      if (cleanedFilterData[filter.id] === null||cleanedFilterData[filter.id] === undefined || cleanedFilterData[filter.id].trim() === '')
+        delete cleanedFilterData[filter.id]
     }
   }
 
@@ -107,7 +106,13 @@ function determineFields(results) {
     key: fieldName,
   }))
 }
+function removeHiddenFields(selectedFields, hiddenFields) {
+  // Convert hiddenFields array to a Set for efficient lookup
+  const hiddenFieldsSet = new Set(hiddenFields)
 
+  // Filter out objects from selectedFields whose key is in hiddenFieldsSet
+  return selectedFields.filter(field => !hiddenFieldsSet.has(field.key))
+}
 const TaskComponent = ({
   sorts,
   filters,
@@ -141,32 +146,48 @@ const TaskComponent = ({
   // For Filters
   const mountedRef = useRef(false)
 
+
   useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
     if (!mountedRef.current) {
-      mountedRef.current = true
-      return
+      mountedRef.current = true;
+      return;
     }
+    if (!taskId){
+      return 
+    }
+
     const fetchData = async () => {
-      setLoading(true)
+      setLoading(true);
       try {
-        const per_page_records = 25
+        const per_page_records = 25;
         const params = {
           sort,
           filters: clean_filter_data(filter_data, filters),
           view: pageAndView.view,
-          offset: pageAndView.currentPage * per_page_records,
-          limit: per_page_records,
-        }
-        const { data } = await Api.getTaskResults(taskId, params)
-        setResponse(data)
+          page: pageAndView.currentPage + 1,
+          per_page: per_page_records,
+        };
+        const { data } = await Api.getUiTaskResults(taskId, params, false, signal);
+        setResponse(data);
       } catch (error) {
-        console.error('Failed to fetch task:', error)
+        if (error.message === 'canceled'){
+          return 
+        }
+        
+        console.error('Failed to fetch task:', error);
       }
-      setLoading(false)
-    }
+      setLoading(false);
+    };
 
-    fetchData()
-  }, [taskId, sort, filter_data, pageAndView.view, pageAndView.currentPage])
+    fetchData();
+
+    return () => {
+      controller.abort(); // Cancel any ongoing fetch requests
+    };
+  }, [taskId, sort, filter_data, pageAndView.view, pageAndView.currentPage]);
 
   // For Updates
   useEffect(() => {
@@ -174,38 +195,39 @@ const TaskComponent = ({
     if (isExecuting) {
       const fetchData = async () => {
         try {
-            // First check if the task has been updated
-            const isUpdatedResponse = await Api.isTaskUpdated(taskId, response.task.updated_at, response.task.status);
-            if (isUpdatedResponse.data.result) {
-                // If the task has been updated, fetch the task results
-                const per_page_records = 25;
-                const params = {
-                    sort,
-                    filters: clean_filter_data(filter_data, filters),
-                    view: pageAndView.view,
-                    offset: pageAndView.currentPage * per_page_records,
-                    limit: per_page_records,
-                };
-                const { data } = await Api.getTaskResults(taskId, params);
-                if ((pageAndView.currentPage + 1) > data.page_count) {
-                    setPageAndView((x) => ({ ...x, currentPage: 0 }));
-                }
-                setResponse(data);
+          // First check if the task has been updated
+          const isUpdatedResponse = await Api.isTaskUpdated(taskId, response.task.updated_at, response.task.status)
+          if (isUpdatedResponse.data.result) {
+            // If the task has been updated, fetch the task results
+            const per_page_records = 25
+            const params = {
+              sort,
+              filters: clean_filter_data(filter_data, filters),
+              view: pageAndView.view,
+              page: pageAndView.currentPage + 1,
+              per_page: per_page_records,
             }
-          } catch (error) {
-            console.error('Failed to fetch task:', error);
+            const { data } = await Api.getUiTaskResults(taskId, params)
+            if ((pageAndView.currentPage + 1) > data.total_pages) {
+              setPageAndView((x) => ({ ...x, currentPage: 0 }))
+            }
+            setResponse(data)
+          }
+        } catch (error) {
+          console.error('Failed to fetch task:', error)
         }
-    };
-    
+      }
+
       const intervalId = setInterval(fetchData, 1000) // Polling every 1000 milliseconds
       return () => clearInterval(intervalId)
     }
   }, [response.task.updated_at, taskId, response.task.status, sort, filter_data, pageAndView.view, pageAndView.currentPage])
 
   let selectedFields =
-    pageAndView.view === '__all_fields__'
+    !pageAndView.view
       ? determineFields(response.results)
       : views.find(v => v.id === pageAndView.view)?.fields ?? null
+
   if (selectedFields) {
     selectedFields = caseFields(selectedFields)
   }
@@ -219,7 +241,7 @@ const TaskComponent = ({
   }
 
   const hasResults = !!response.count
-  const showPagination = hasResults && response.page_count > 1
+  const showPagination = hasResults && response.total_pages > 1
 
   const isResultsNotArray = !Array.isArray(response.results)
   if (isResultsNotArray) {
@@ -266,47 +288,38 @@ const TaskComponent = ({
     <>
       <OutputTabsContainer>
         <div className='space-y-6 '>
-        <Link href={`/output`} passHref>
-              <EuiLink>View All Tasks</EuiLink>
-            </Link>
-          {filters.length ? (
+          <Link href={`/output`} passHref>
+            <EuiLink>View All Tasks</EuiLink>
+          </Link>
+          {hasFilters(filters) ? (
             <FilterComponent
               filter_data={filter_data}
               setFilter={setFilter}
               filters={filters}
             />
-          ):null}
+          ) : null}
 
-          {sorts.length ? (
-            <SortComponent sort={sort} setSort={setSort} sorts={sorts} />
+          {hasSorts(sorts) ? (
+            <div><SortComponent sort={sort} setSort={setSort} sorts={sorts} /></div>
           ) : null}
         </div>
 
-        <div className="pb-6 pt-2">
+        {hasViews(views) ? <div className="pb-6 pt-2">
           <ViewComponent
             view={pageAndView.view}
             setView={handleViewSet}
             views={views}
           />
-        </div>
+        </div> : <div className=' pt-4' />}
       </OutputTabsContainer>
-      <OutputContainerWithBottomPadding>
+      <OutputContainerWithBottomPadding className={hasResults && response.results.length <= 5 ? "OutputContainerWithBottomPadding" : null}>
         {loading ? (
           <CenteredSpinner></CenteredSpinner>
         ) : hasResults ? (
           <>
-            <DataPanel response={response} fields={selectedFields} />
+            <DataPanel response={response} fields={response.hidden_fields && response.hidden_fields.length ? removeHiddenFields(selectedFields, response.hidden_fields) : selectedFields} />
             {showPagination ? (
-              <EuiPagination
-                aria-label="Pagination"
-                style={{
-                  display: 'flex',
-                  justifyContent: 'end',
-                }}
-                pageCount={response.page_count}
-                activePage={pageAndView.currentPage}
-                onPageClick={handlePageClick}
-              />
+              <Pagination {...{ total_pages: response.total_pages, activePage: pageAndView.currentPage, onPageClick: handlePageClick }} />
             ) : (
               <div />
             )}

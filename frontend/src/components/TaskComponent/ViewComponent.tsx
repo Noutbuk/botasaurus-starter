@@ -1,4 +1,4 @@
-import Tabs from '../Tabs/Tabs'
+import Tabs from '../Tabs/Tabs';
 
 export const ViewComponent = ({ view, setView, views }) => {
   // Convert sorts to the format expected by TabsComponent
@@ -8,12 +8,14 @@ export const ViewComponent = ({ view, setView, views }) => {
       name: label,
       content: <></>, // Assuming no content is needed for the sorting tabs
     })),
+    {"id": "__all_fields__", "name": "All Fields",    content: <></>},
   ]
 
   // Handler for when a tab is clicked
   const onViewChange = selectedTab => {
-    setView(selectedTab.id)
+    const view = selectedTab.id
+    setView(view ===  "__all_fields__" ? null: view)
   }
-
-  return <Tabs tabs={viewTabs} selectedTab={view} onTabChange={onViewChange} />
+  // return null
+  return <Tabs tabs={viewTabs} selectedTab={ view ===  null ? "__all_fields__": view} onTabChange={onViewChange} />
 }

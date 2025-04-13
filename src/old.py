@@ -11,12 +11,12 @@ def scrape_heading_task(driver: AntiDetectDriver, data):
     driver.get(data["link"])
 
     WebDriverWait(driver, 5).until(
-        EC.presence_of_element_located((By.ID, "cmpwrapper")))
-    cookie_button = WebDriverWait(driver, 5).until(EC.visibility_of((driver.execute_script(
-        "return document.getElementById('cmpwrapper').shadowRoot.getElementById('cmpbox').querySelector('a.cmpboxbtnyes')"))))
-    cookie_button.click()
+        EC.presence_of_element_located((By.ID, "EventDetailsAndListingCard")))
+#    cookie_button = WebDriverWait(driver, 5).until(EC.visibility_of((driver.execute_script(
+#        "return document.getElementById('cmpwrapper').shadowRoot.getElementById('cmpbox').querySelector('a.cmpboxbtnyes')"))))
+#    cookie_button.click()
 
-    time.sleep(2)
+#    time.sleep(2)
     driver.save_screenshot("cookie_screenshot.png")
     return after_cookies(driver, data, status, info, 1)
 

@@ -29,21 +29,6 @@ export const OutputTabsContainer = ({ children }) => {
   )
 }
 
-export const OutputTabsContainerWithBottomPadding = ({ children }) => {
-  return (
-    <div
-      className=""
-      style={{
-        paddingLeft: '16px',
-        paddingRight: '16px',
-        paddingBottom: '32px',
-        margin: '0 auto',
-        maxWidth: '800px',
-      }}>
-      {children}
-    </div>
-  )
-}
 
 export const OutputContainer = ({ children }) => {
   return (
@@ -61,25 +46,10 @@ export const OutputContainer = ({ children }) => {
   )
 }
 
-export const OutputContainerWithoutBottomPadding = ({ children }) => {
+export const OutputContainerWithBottomPadding = ({ children , className=""}) => {
   return (
     <div
-      className=""
-      style={{
-        paddingLeft: '16px',
-        paddingRight: '16px',
-        margin: '0 auto',
-        maxWidth: '1200px',
-      }}>
-      {children}
-    </div>
-  )
-}
-
-export const OutputContainerWithBottomPadding = ({ children }) => {
-  return (
-    <div
-      className=""
+      className={className}
       style={{
         paddingLeft: '16px',
         paddingRight: '16px',
@@ -95,3 +65,4 @@ export const OutputContainerWithBottomPadding = ({ children }) => {
 export const TabWrapper = ({ children }) => {
   return <div className="mt-4">{children}</div>
 }
+

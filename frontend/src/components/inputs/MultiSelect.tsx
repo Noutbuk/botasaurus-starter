@@ -1,4 +1,4 @@
-import { EuiComboBox } from '@elastic/eui'
+import { EuiComboBox } from '@elastic/eui';
 
 export default function MultiSelect({
   options,
@@ -7,8 +7,6 @@ export default function MultiSelect({
   ...props
 }: any) {
   const selected = value
-  // cleanedOptions.filter(x => value.includes(x.value))
-
   return (
     <EuiComboBox
       {...props}

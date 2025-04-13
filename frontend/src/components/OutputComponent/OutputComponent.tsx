@@ -10,31 +10,28 @@ import {
   EuiModalFooter,
   EuiModalHeader,
   EuiModalHeaderTitle,
-  EuiPagination,
   EuiText,
   formatDate,
-} from '@elastic/eui'
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import Api from '../../utils/api'
-import { TaskStatus, filterAndMapAllTasks, filterIsDoingTasks, isDoing } from '../../utils/models'
-import { EmptyOutputs, EmptyScraper } from '../Empty/Empty'
-import Toast from '../../utils/cogo-toast'
-import ClickOutside from '../ClickOutside/ClickOutside'
-import { isEmpty } from '../../utils/missc'
-import CenteredSpinner from '../CenteredSpinner'
+} from '@elastic/eui';
+import { useEffect, useState } from 'react';
+
+import Description from '../../components/Description/Description';
+import Tabs, { TabsId } from '../../components/PagesTabs/PagesTabs';
+import ServerStatusComponent from '../../components/ServerStatusComponent';
+import { OutputContainer, OutputTabsContainer, TabWrapper } from '../../components/Wrappers';
+import Api from '../../utils/api';
+import Toast from '../../utils/cogo-toast';
+import { isEmpty } from '../../utils/missc';
+import { filterAndMapAllTasks, filterIsPendingTasks, filterIsProgressTasks, TaskStatus } from '../../utils/models';
+import CenteredSpinner from '../CenteredSpinner';
+import ClickOutside from '../ClickOutside/ClickOutside';
+import { EmptyOutputs, EmptyScraper } from '../Empty/Empty';
+import { Link } from '../Link';
+import { Pagination } from '../Pagination';
 
 function convertLocalDateToUTCDate(date, toUTC) {
-  date = new Date(date)
-  const localOffset = date.getTimezoneOffset() * 60000
-  const localTime = date.getTime()
-  if (toUTC) {
-    date = localTime + localOffset
-  } else {
-    date = localTime - localOffset
-  }
-  date = new Date(date)
-  return date
+  // auto converts so no need
+  return new Date(date+"Z")
 }
 
 const toTitleCase = str => {
@@ -88,13 +85,6 @@ function timeToHumanReadable(seconds) {
   if (seconds === 0) {
     return '0s'
   }
-  else if (seconds <= 5) {
-    const rst = `${seconds.toFixed(2)}s`
-    if (rst.endsWith(".00s")) {
-      return rst.replace(".00", "")
-    }
-    return rst
-  }
 
   // remove decimals using bitwise
   seconds = ~~seconds
@@ -124,7 +114,7 @@ function calculateDuration(obj) {
   if (obj.started_at) {
     // Convert datetime strings to Date objects
     const startedAt = new Date(obj.started_at)
-    const endTime = obj.finished_at ? new Date(obj.finished_at) : convertLocalDateToUTCDate(new Date(), true)
+    const endTime = obj.finished_at ? new Date(obj.finished_at) : new Date()
     // @ts-ignore
     const duration = (endTime - startedAt) / 1000
 
@@ -269,9 +259,10 @@ const TaskTable = ({ activePage, onPageClick, isLoading, total_pages, tasks, upd
   return (
     <>
       {taskToBeDeleted && (
+          <ClickOutside
+          exceptions={['euiModal']} 
+          handleClickOutside={() => { closeModal() }}>
         <EuiModal onClose={closeModal}>
-          <ClickOutside handleClickOutside={() => { closeModal() }}>
-            <div>
 
               <EuiModalHeader>
                 <EuiModalHeaderTitle>Confirm Delete</EuiModalHeaderTitle>
@@ -289,9 +280,9 @@ const TaskTable = ({ activePage, onPageClick, isLoading, total_pages, tasks, upd
                 </EuiButton>
               </EuiModalFooter>
 
-            </div>
-          </ClickOutside>
+
         </EuiModal>
+        </ClickOutside>
       )}
       {isLoading ? (
         <CenteredSpinner />
@@ -305,16 +296,7 @@ const TaskTable = ({ activePage, onPageClick, isLoading, total_pages, tasks, upd
               className: 'pointer',
             })}
           />
-          <EuiPagination
-            aria-label={'Pagination'}
-            style={{
-              display: 'flex',
-              justifyContent: 'end',
-            }}
-            pageCount={total_pages}
-            activePage={activePage - 1}
-            onPageClick={(x) => onPageClick(x)}
-          />
+          <Pagination {...{ total_pages, activePage: activePage - 1, onPageClick }} />
         </>
       )}
 
@@ -324,36 +306,40 @@ const TaskTable = ({ activePage, onPageClick, isLoading, total_pages, tasks, upd
   )
 }
 
-const OutputComponent = ({ scrapers, tasks: taskResponse }) => {
+
+const OutputComponent = (props) => {
+  const { scrapers, tasks: taskResponse } = props
 
   const [state, setState] = useState({ ...taskResponse, active_page: 1 })
   const [isLoading, setLoading] = useState(false)
   const total_pages = state.total_pages
   const results = state.results
   const active_page = state.active_page
-  
+
   useEffect(() => {
-    const pendingTaskIds = filterIsDoingTasks(results).map(task => task.id)
-    if (pendingTaskIds.length > 0) {
-      const isCleared = { isCleared: false }; // Initialize as an object with isCleared property
+    const pendingTsks = filterIsPendingTasks(results)
+    const progressTsks = filterIsProgressTasks(results)
+    const hasTasks = pendingTsks.length > 0 || progressTsks.length > 0
+    if (!isLoading && hasTasks) {
+      const isCleared = { isCleared: false } // Initialize as an object with isCleared property
       const intervalId = setInterval(async () => {
         if (!isCleared.isCleared) { // Access the isCleared property
-          const all_tasks = filterAndMapAllTasks(results)
-          const response = await Api.isAnyTaskFinished(pendingTaskIds, all_tasks)
-          if (response.data.result && !isCleared.isCleared) { 
-            const { data } = await Api.getTasks(active_page)
+          const all_tasks = filterAndMapAllTasks(pendingTsks.concat(progressTsks))
+          const response = await Api.isAnyTaskUpdated(pendingTsks.map(task => task.id), progressTsks.map(task => task.id), all_tasks)
+          if (response.data.result && !isCleared.isCleared) {
+            const { data } = await Api.getTasksForUiDisplay(active_page)
             if (!isCleared.isCleared) { // Access the isCleared property
               setState((x) => ({ ...data, active_page: x.active_page > data.total_pages ? 1 : x.active_page }))
             }
-          }          
+          }
         }
       }, 1000)
       return () => {
-        isCleared.isCleared = true; // Set the isCleared property to true
+        isCleared.isCleared = true // Set the isCleared property to true
         return clearInterval(intervalId)
       }
     }
-  }, [results, active_page]);
+  }, [isLoading, results, active_page])
 
 
   function updateState(data, current_page) {
@@ -368,24 +354,39 @@ const OutputComponent = ({ scrapers, tasks: taskResponse }) => {
   const onPageChange = x => {
     async function fetchData() {
       setLoading(true)
-      const data = (await Api.getTasks(x)).data
+      const data = (await Api.getTasksForUiDisplay(x)).data
       updateState(data, x)
       setLoading(false)
 
     }
     fetchData()
   }
-
+  let cp
   if (!scrapers || scrapers.length === 0) {
-    return <EmptyScraper />
+    cp = <EmptyScraper />
   }
 
-  if (results && results.length === 0) {
-    return <EmptyOutputs />
+  else if (results && results.length === 0) {
+    cp = <EmptyOutputs />
+  } else {
+
+    cp = <TaskTable activePage={active_page} onPageClick={x => onPageChange(x + 1)} isLoading={isLoading} total_pages={total_pages} tasks={results} updateTasks={updateState} />
   }
-  return (
-    <TaskTable activePage={active_page} onPageClick={x => onPageChange(x + 1)} isLoading={isLoading} total_pages={total_pages} tasks={results} updateTasks={updateState} />
-  )
+  return <> <OutputTabsContainer>
+    <ServerStatusComponent />
+    <Description {...props} />
+    <Tabs onTabChange={(id) => {
+      if (id === TabsId.OUTPUT) {
+        onPageChange(1)
+      }
+    }} initialSelectedTab={TabsId.OUTPUT} />
+  </OutputTabsContainer>
+    <OutputContainer>
+      <TabWrapper>
+        {cp}
+      </TabWrapper>
+    </OutputContainer>
+  </>
 }
 
 export default OutputComponent
